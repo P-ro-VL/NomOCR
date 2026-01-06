@@ -1,0 +1,12 @@
+HEIGHT = 432
+WIDTH = 48
+CHANNELS = 3
+
+BATCH_SIZE = 32
+EPOCHS = 30
+LEARNING_RATE = 1.0
+
+DATASET_DIR = "/volumes/dataset"
+CHECKPOINT_DIR = "/volumes/checkpoints"
+
+PADDING_TOKEN = "[PAD]"
