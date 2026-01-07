@@ -8,68 +8,29 @@ from sklearn.model_selection import train_test_split
 from config import *
 from model.crnn_transformer import build_model
 from model.ctc_loss import CTCLoss
-from data.dataset import build_dataset
-
-
-DATASET_DIR = "./dataset"
-ZIP_PATH = os.path.join(DATASET_DIR, "dataset.zip")
-EXTRACT_DIR = os.path.join(DATASET_DIR, "data")
-
-
-def unzip_if_needed():
-    if os.path.exists(os.path.join(EXTRACT_DIR, "labels.txt")):
-        print("Dataset already extracted, skipping unzip")
-        return
-
-    print("Extracting dataset zip...")
-    os.makedirs(EXTRACT_DIR, exist_ok=True)
-    with zipfile.ZipFile(ZIP_PATH, "r") as zip_ref:
-        zip_ref.extractall(EXTRACT_DIR)
-    print("Dataset extracted")
-
+from data.preprocess import DataImporter, DataHandler
 
 def train():
     print("Starting training...")
 
-    unzip_if_needed()
+    image_root = os.path.join(DATASET_DIR, "images")
+    label_file = os.path.join(DATASET_DIR, "labels.txt")
 
-    image_root = os.path.join(EXTRACT_DIR, "images")
-    label_file = os.path.join(EXTRACT_DIR, "labels.txt")
+    dataset = DataImporter(DATASET_DIR, label_file, min_length=1)
+    data_handler = DataHandler(dataset, img_size=(HEIGHT, WIDTH), padding_char=PADDING_TOKEN)
 
-    # Load labels
-    with open(label_file, encoding="utf-8") as f:
-        lines = [l.strip().split("\t") for l in f if l.strip()]
+    VOCAB_SIZE = len(data_handler.char2num.get_vocabulary())
+    print(f"Vocabulary size: {VOCAB_SIZE}")
 
-    image_paths = [os.path.join(image_root, x[0]) for x in lines]
-    labels = [x[1] for x in lines]
+    train_idxs = list(range(dataset.size - NUM_VALIDATE))
+    valid_idxs = list(range(train_idxs[-1] + 1, dataset.size))
 
-    print(f"Loaded {len(labels)} samples")
-
-    vocab = sorted(set("".join(labels)))
-    char2num = tf.keras.layers.StringLookup(
-        vocabulary=vocab,
-        mask_token=PADDING_TOKEN
-    )
-
-    max_len = max(len(l) for l in labels)
-
-    train_imgs, val_imgs, train_lbls, val_lbls = train_test_split(
-        image_paths,
-        labels,
-        test_size=0.1,
-        random_state=42,
-        shuffle=True
-    )
-
-    train_ds = build_dataset(
-        train_imgs, train_lbls, char2num, max_len, BATCH_SIZE
-    )
-    val_ds = build_dataset(
-        val_imgs, val_lbls, char2num, max_len, BATCH_SIZE
-    )
-
+    train_tf_dataset = data_handler.prepare_tf_dataset(train_idxs, BATCH_SIZE)
+    valid_tf_dataset = data_handler.prepare_tf_dataset(valid_idxs, BATCH_SIZE)
+    
     print("Building model...")
-    model = build_model(len(vocab))
+    model = build_model()
+    model.summary(line_length=110)
     model.compile(
         optimizer=tf.keras.optimizers.Adadelta(LEARNING_RATE),
         loss=CTCLoss()
@@ -110,8 +71,8 @@ def train():
 
     print("Starting model training...")
     history = model.fit(
-        train_ds,
-        validation_data=val_ds,
+        train_tf_dataset,
+        validation_data=valid_tf_dataset,
         epochs=EPOCHS,
         callbacks=callbacks
     )

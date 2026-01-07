@@ -1,11 +1,15 @@
 import tensorflow as tf
 
 class CTCLoss(tf.keras.losses.Loss):
-    def call(self, y_true, y_pred):
-        batch = tf.shape(y_true)[0]
-        input_len = tf.shape(y_pred)[1] * tf.ones((batch, 1), dtype="int32")
-        label_len = tf.math.count_nonzero(y_true, axis=1, keepdims=True)
+    def __init__(self, name='ctc_loss', **kwargs):
+        super(CTCLoss, self).__init__(name=name, **kwargs)
+        self.loss = tf.keras.backend.ctc_batch_cost
 
-        return tf.keras.backend.ctc_batch_cost(
-            y_true, y_pred, input_len, label_len
-        )
+    def call(self, y_true, y_pred):
+        label_length = tf.cast(y_true != 0, tf.int64)
+        label_length = tf.expand_dims(tf.reduce_sum(label_length, axis=-1), axis=1)
+
+        batch_length = tf.cast(tf.shape(y_true)[0], tf.int64)
+        pred_length = tf.cast(tf.shape(y_pred)[1], tf.int64)
+        pred_length *= tf.ones((batch_length, 1), tf.int64)
+        return self.loss(y_true, y_pred, pred_length, label_length)

@@ -6,7 +6,9 @@ BATCH_SIZE = 32
 EPOCHS = 30
 LEARNING_RATE = 1.0
 
-DATASET_DIR = "/volumes/dataset"
-CHECKPOINT_DIR = "/volumes/checkpoints"
+NUM_VALIDATE = 7500
+
+DATASET_DIR = "./dataset"
+CHECKPOINT_DIR = "./checkpoints"
 
 PADDING_TOKEN = "[PAD]"
