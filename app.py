@@ -1,7 +1,7 @@
 import os
 import zipfile
 import beam
-from beam import Sandbox, Image, Volume
+from beam import Sandbox, Image, Volume, endpoint
 import tensorflow as tf
 from sklearn.model_selection import train_test_split
 
@@ -28,7 +28,26 @@ def unzip_if_needed():
     print("Dataset extracted")
 
 
+@endpoint(
+    name="crnn-transformer-sandbox",
+    cpu=4,
+    memory="32Gi",
+    gpu="A10G",
+    gpu_count=1,
+    image=Image(
+        python_packages=[
+            "tensorflow[and-cuda]",
+            "scikit-learn",
+        ]
+    ),
+    volumes=[
+        Volume(name="dataset", mount_path="./dataset"),
+        Volume(name="checkpoints", mount_path=CHECKPOINT_DIR),
+    ],
+)
 def train():
+    print("Num GPUs Available:", len(tf.config.list_physical_devices('GPU')))
+    print(tf.config.list_physical_devices())
     print("Starting training...")
 
     unzip_if_needed()
@@ -119,27 +138,32 @@ def train():
     print("Training completed!")
 
 
-if __name__ == "__main__":
-    sandbox = Sandbox(
-        name="crnn-transformer-sandbox",
-        cpu=4,
-        memory="32Gi",
-        gpu="A10G",
-        image=Image(
-            python_packages=[
-                "tensorflow",
-                "scikit-learn",
-            ]
-        ),
-        volumes=[
-            Volume(name="dataset", mount_path="./dataset"),
-            Volume(name="checkpoints", mount_path=CHECKPOINT_DIR),
-        ],
-    )
 
-    sb = sandbox.create()
+
+# if __name__ == "__main__":
+#     sandbox = Sandbox(
+#         name="crnn-transformer-sandbox",
+#         cpu=4,
+#         memory="32Gi",
+#         gpu="A10G",
+#         gpu_count=1,
+#         image=Image(
+#             python_packages=[
+#                 "tensorflow[and-cuda]",
+#                 "scikit-learn",
+#             ]
+#         ),
+#         volumes=[
+#             Volume(name="dataset", mount_path="./dataset"),
+#             Volume(name="checkpoints", mount_path=CHECKPOINT_DIR),
+#         ],
+#     )
+
+#     sb = sandbox.create()
+
+#     print(os.system("nvidia-smi"))
     
-    sb.process.run_code(train())
-    print("Done")
+#     sb.process.run_code(train())
+#     print("Done")
 
-    sb.terminate()
+#     sb.terminate()
